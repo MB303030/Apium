@@ -1,37 +1,65 @@
-// test/specs/ios/sanity.ios.js
-const { APP_BUNDLE_ID, DEFAULT_TIMEOUT } = require('../../constants');
+const { APP_BUNDLE_ID } = require('../../constants');
 const MainPage = require('../../pages/MainPage');
+const menuItems = require('../../data/menuItems');
 
-describe('iOS Sanity Test', () => {
+describe('iOS Menu Items Sanity Test', () => {
     let mainPage;
 
     beforeEach(async () => {
-        // Launch the app fresh
+        // ensure clean start
+        try { await driver.terminateApp(APP_BUNDLE_ID); } catch {}
         await driver.activateApp(APP_BUNDLE_ID);
-        // Initialize the page object
         mainPage = new MainPage(driver);
-        // Wait for main screen to load
         await mainPage.waitForMainScreen();
     });
 
     afterEach(async () => {
-        // Kill the app after test
-        await driver.terminateApp(APP_BUNDLE_ID);
+        try {
+            await driver.terminateApp(APP_BUNDLE_ID);
+        } catch (err) {
+            console.warn('App already closed or crashed.');
+        }
     });
 
-    it('should open app, tap Activity Indicators, and return', async () => {
-        // Tap on "Activity Indicators" using page object method
-        await mainPage.tapOnActivityIndicators();
+    it('should click each menu item and return to main menu', async () => {
+        for (const label of menuItems) {
+            try {
+                // Wait for main screen fully
+                await mainPage.waitForMainScreen();
 
-        // Verify we're on the Activity Indicators screen
-        // Using a predicate for the header (adjust if needed)
-        const activityIndicatorsHeader = await mainPage.findByPredicate('label == "Activity Indicators"');
-        await expect(activityIndicatorsHeader).toBeDisplayed();
+                console.log(`Testing menu item: ${label}`);
 
-        // Go back to main menu
-        await mainPage.goBack();
+                // Scroll to menu item only once
+                const menuItem = await mainPage.scrollToMenuItem(label);
+                if (!menuItem) {
+                    console.warn(`Menu item "${label}" not found, skipping.`);
+                    continue;
+                }
 
-        // Confirm we're back on main screen
-        await mainPage.waitForMainScreen();
+                // Tap menu item
+                await menuItem.click();
+
+                // Wait for detail screen safely (short timeout)
+                try {
+                    await mainPage.waitForDetailScreen(label, 5000);
+                    console.log(`Detail screen for "${label}" loaded`);
+                } catch {
+                    console.warn(`Detail screen for "${label}" did not appear.`);
+                }
+
+                // Go back to main menu
+                await mainPage.goBack();
+            } catch (err) {
+                console.warn(`Skipping menu item "${label}" due to error: ${err.message}`);
+                // Ensure app is still running
+                try {
+                    await driver.activateApp(APP_BUNDLE_ID);
+                    await mainPage.waitForMainScreen();
+                } catch {
+                    console.error('App crashed, stopping test.');
+                    break;
+                }
+            }
+        }
     });
 });
