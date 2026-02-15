@@ -1,10 +1,17 @@
 // test/specs/ios/sanity.ios.js
-const APP_BUNDLE_ID = 'com.example.apple-samplecode.UICatalog'; // <-- REPLACE WITH YOUR APP'S BUNDLE ID
+const { APP_BUNDLE_ID, DEFAULT_TIMEOUT } = require('../../constants');
+const MainPage = require('../../pages/MainPage');
 
 describe('iOS Sanity Test', () => {
+    let mainPage;
+
     beforeEach(async () => {
         // Launch the app fresh
         await driver.activateApp(APP_BUNDLE_ID);
+        // Initialize the page object
+        mainPage = new MainPage(driver);
+        // Wait for main screen to load
+        await mainPage.waitForMainScreen();
     });
 
     afterEach(async () => {
@@ -13,21 +20,18 @@ describe('iOS Sanity Test', () => {
     });
 
     it('should open app, tap Activity Indicators, and return', async () => {
-        // Wait for main screen to load
-        await $('~UIKitCatalog').waitForDisplayed({ timeout: 10000 });
+        // Tap on "Activity Indicators" using page object method
+        await mainPage.tapOnActivityIndicators();
 
-        // Tap the first menu item – "Activity Indicators"
-        const activityIndicators = await $('-ios predicate string:label == "Activity Indicators"');
-        await activityIndicators.waitForExist({ timeout: 5000 });
-        await activityIndicators.click();
-
-        // Verify we're on the Activity Indicators screen (adjust selector if needed)
-        await $('~Activity Indicators').waitForDisplayed({ timeout: 5000 });
+        // Verify we're on the Activity Indicators screen
+        // Using a predicate for the header (adjust if needed)
+        const activityIndicatorsHeader = await mainPage.findByPredicate('label == "Activity Indicators"');
+        await expect(activityIndicatorsHeader).toBeDisplayed();
 
         // Go back to main menu
-        await driver.back();
+        await mainPage.goBack();
 
-        // Confirm we're back
-        await $('~UIKitCatalog').waitForDisplayed({ timeout: 5000 });
+        // Confirm we're back on main screen
+        await mainPage.waitForMainScreen();
     });
 });

@@ -1,4 +1,6 @@
+// test/constants.js
 module.exports = {
     APP_BUNDLE_ID: 'com.example.apple-samplecode.UICatalog',
-    // Add other constants like timeouts, etc.
+    DEFAULT_TIMEOUT: 10000,
+    // Add other constants as needed
 };

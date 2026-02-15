@@ -1,38 +1,36 @@
 // test/pages/MainPage.js
 const BasePage = require('./BasePage');
+const { swipe } = require('../helpers/swipe'); // Adjust path if needed
 
 class MainPage extends BasePage {
     constructor(driver) {
         super(driver);
     }
 
-    // Element getters using accessibility IDs from the app
+    // Element getters using predicate strings (based on visible labels)
     get activityIndicatorsMenuItem() {
-        return this.findByAccessibilityId('Activity Indicators');
+        return this.findByPredicate('label == "Activity Indicators"');
     }
 
     get alertViewsMenuItem() {
-        return this.findByAccessibilityId('Alert Views');
+        return this.findByPredicate('label == "Alert Views"');
     }
 
     get buttonsMenuItem() {
-        return this.findByAccessibilityId('Buttons');
+        return this.findByPredicate('label == "Buttons"');
     }
 
     get datePickerMenuItem() {
-        return this.findByAccessibilityId('Date Picker');
+        return this.findByPredicate('label == "Date Picker"');
     }
 
-    // Add more as needed
-
-    // Navigation bar title
+    // Navigation bar title (acts as back button too)
     get mainHeader() {
-        return this.findByAccessibilityId('UIKitCatalog');
+        return this.findByPredicate('label == "UIKitCatalog"');
     }
 
-    // Back button (same as mainHeader on detail screens)
     get backButton() {
-        return this.findByAccessibilityId('UIKitCatalog');
+        return this.mainHeader;
     }
 
     // Actions
@@ -50,6 +48,28 @@ class MainPage extends BasePage {
 
     async goBack() {
         await this.click(await this.backButton);
+    }
+
+    async waitForMainScreen() {
+        await this.waitForElement(await this.mainHeader);
+    }
+
+    // Scroll to a menu item using swipe helper
+    async scrollToMenuItem(itemLabel, maxSwipes = 5) {
+        let swipes = 0;
+        while (swipes < maxSwipes) {
+            try {
+                const element = await this.findByPredicate(`label == "${itemLabel}"`);
+                if (await element.isDisplayed()) {
+                    return element;
+                }
+            } catch (err) {
+                // element not found, continue swiping
+            }
+            await swipe(this.driver, 'up', 0.6);
+            swipes++;
+        }
+        throw new Error(`Element with label "${itemLabel}" not found after ${maxSwipes} swipes`);
     }
 }
 
