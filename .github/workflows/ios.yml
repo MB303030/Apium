@@ -1,0 +1,56 @@
+name: iOS 
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ios-test:
+    runs-on: macos-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      # 🔨 Build the UIKitCatalog app from source
+      - name: 🔨 Build UIKitCatalog app
+        run: |
+          xcodebuild build \
+            -project UIKitCatalog/UIKitCatalog.xcodeproj \
+            -scheme UIKitCatalog \
+            -sdk iphonesimulator \
+            -derivedDataPath ./DerivedData \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: 📦 Install NPM packages
+        run: npm ci
+
+      - name: 📱 List available iOS Simulators
+        run: xcrun simctl list devices
+
+      # Create the specific simulator if it doesn't exist (adjust version/name as needed)
+      - name: 📱 Create required simulator
+        run: |
+          # Try to create iOS 18.5 / iPhone 16 – if it already exists, the command will fail but we don't care
+          xcrun simctl create "iPhone 16" "com.apple.CoreSimulator.SimDeviceType.iPhone-16" "com.apple.CoreSimulator.SimRuntime.iOS-18-5" || true
+
+      # 🚀 Appium is started automatically by the @wdio/appium-service, so no manual start needed
+
+      - name: 🧪 Run WebdriverIO Tests (CI config)
+        env:
+          APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
+          IOS_VERSION: '18.5'                # must match the created simulator
+          DEVICE_NAME: 'iPhone 16'            # must match the created simulator
+        run: npx wdio run wdio.ci.conf.js
+
+      - name: 📤 Upload Mochawesome Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: reports/
