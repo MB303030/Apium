@@ -16,9 +16,11 @@ jobs:
         with:
           node-version: '20.x'
 
-      # 🔨 Build UIKitCatalog app with Xcode 26
+      # 🔨 Build UIKitCatalog app
       - name: 🔨 Build UIKitCatalog app
         run: |
+          set -e
+          echo "Building UIKitCatalog app..."
           sudo xcode-select -s /Applications/Xcode_26.2.app
           xcodebuild build \
             -project UIKitCatalog/UIKitCatalog.xcodeproj \
@@ -27,25 +29,61 @@ jobs:
             -derivedDataPath ./DerivedData \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO
+        shell: bash
 
       - name: 📦 Install NPM packages
-        run: npm ci
+        run: |
+          set -e
+          echo "Installing npm packages..."
+          npm ci
+        shell: bash
 
       - name: 📱 List iOS Simulators
-        run: xcrun simctl list devices
+        run: |
+          echo "Listing available iOS simulators..."
+          xcrun simctl list devices
+          xcrun simctl list runtimes
+        shell: bash
 
+      # 🚀 Boot simulator with robust wait & error handling
       - name: 🚀 Boot iPhone 17 Pro Simulator
         run: |
-          xcrun simctl boot "iPhone 17 Pro" || echo "Already booted"
-          xcrun simctl bootstatus "iPhone 17 Pro" -b
+          set -e
+          DEVICE="iPhone 17 Pro"
+          TIMEOUT=300  # max wait seconds
+          INTERVAL=5   # poll interval
+          echo "Booting simulator $DEVICE..."
+          xcrun simctl boot "$DEVICE" || echo "Already booted"
 
+          ELAPSED=0
+          while [[ $(xcrun simctl list devices | grep "$DEVICE" | grep -c "Booted") -eq 0 && $ELAPSED -lt $TIMEOUT ]]; do
+            echo "Waiting for simulator to boot... ($ELAPSED/$TIMEOUT)"
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED+INTERVAL))
+          done
+
+          if [[ $(xcrun simctl list devices | grep "$DEVICE" | grep -c "Booted") -eq 0 ]]; then
+            echo "❌ Simulator $DEVICE failed to boot after $TIMEOUT seconds"
+            echo "Available devices:"
+            xcrun simctl list devices
+            exit 1
+          fi
+          echo "✅ Simulator $DEVICE booted successfully"
+        shell: bash
+
+      # 🧪 Run WebdriverIO Tests
       - name: 🧪 Run WebdriverIO Tests
         env:
           APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
           IOS_VERSION: '26.2'
           DEVICE_NAME: 'iPhone 17 Pro'
-        run: npx wdio run wdio.ci.conf.js
+        run: |
+          set -e
+          echo "Running WebdriverIO tests..."
+          npx wdio run wdio.ci.conf.js
+        shell: bash
 
+      # 📤 Upload Mochawesome Reports
       - name: 📤 Upload Mochawesome Reports
         if: always()
         uses: actions/upload-artifact@v4
