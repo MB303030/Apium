@@ -5,7 +5,7 @@ on:
 
 jobs:
   ios-test:
-    runs-on: macos-latest
+    runs-on: macos-26
 
     steps:
       - name: 📥 Checkout code
@@ -16,9 +16,10 @@ jobs:
         with:
           node-version: '20.x'
 
-      # 🔨 Build the UIKitCatalog app from source
+      # 🔨 Build UIKitCatalog app with Xcode 26
       - name: 🔨 Build UIKitCatalog app
         run: |
+          sudo xcode-select -s /Applications/Xcode_26.2.app
           xcodebuild build \
             -project UIKitCatalog/UIKitCatalog.xcodeproj \
             -scheme UIKitCatalog \
@@ -33,11 +34,16 @@ jobs:
       - name: 📱 List iOS Simulators
         run: xcrun simctl list devices
 
+      - name: 🚀 Boot iPhone 17 Pro Simulator
+        run: |
+          xcrun simctl boot "iPhone 17 Pro" || echo "Already booted"
+          xcrun simctl bootstatus "iPhone 17 Pro" -b
+
       - name: 🧪 Run WebdriverIO Tests
         env:
           APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
-          IOS_VERSION: '26.2'          # matches runner
-          DEVICE_NAME: 'iPhone 17 Pro' # booted device
+          IOS_VERSION: '26.2'
+          DEVICE_NAME: 'iPhone 17 Pro'
         run: npx wdio run wdio.ci.conf.js
 
       - name: 📤 Upload Mochawesome Reports
