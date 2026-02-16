@@ -5,7 +5,7 @@ const appPath = process.env.APP_PATH || path.join(process.cwd(), 'DerivedData/Bu
 
 exports.config = {
     runner: 'local',
-    port: process.env.APPIUM_PORT || 4723,   // matches WDIO Appium service default
+    port: process.env.APPIUM_PORT || 4723,
     path: '/wd/hub',
     specs: ['./test/specs/**/*.ios.js'],
     maxInstances: 1,
@@ -21,11 +21,27 @@ exports.config = {
     logLevel: 'info',
     bail: 0,
     waitforTimeout: 30000,
-    connectionRetryTimeout: 180000,   // increased for CI reliability
+    connectionRetryTimeout: 180000,
     connectionRetryCount: 3,
-    services: ['appium'],             // WDIO will start Appium automatically
+    services: ['appium'],
     framework: 'mocha',
-    reporters: [['mochawesome', { outputDir: './reports/mochawesome' }]],
+
+    // ✅ Proper Mochawesome configuration
+    reporters: [['mochawesome', {
+        outputDir: './reports/mochawesome',
+        outputFileFormat: function(opts) {
+            return `results-${opts.cid}.html`;  // HTML filename per worker
+        },
+        mochawesomeOpts: {
+            html: true,      // generate HTML
+            json: true,      // generate JSON
+            reportDir: './reports/mochawesome',
+            reportFilename: 'index',
+            overwrite: true,
+            quiet: true
+        }
+    }]],
+
     mochaOpts: { ui: 'bdd', timeout: 60000 },
 
     before: async function () {
