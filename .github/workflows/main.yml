@@ -1,6 +1,5 @@
 name: iOS WDIO Tests (On Demand)
 
-# Trigger workflow manually from the Actions tab
 on:
   workflow_dispatch:
 
@@ -9,37 +8,45 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      # 1️⃣ Checkout the repo
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node 25
-      - name: 🟢 Setup Node.js v25
+      - name: 🟢 Setup Node.js (LTS)
         uses: actions/setup-node@v4
         with:
-          node-version: '25.x'
+          node-version: '20.x'          # Use a stable LTS version
 
-      # 3️⃣ Install dependencies
+      - name: 🔨 Build UIKitCatalog app
+        run: |
+          xcodebuild build \
+            -project UIKitCatalog.xcodeproj \
+            -scheme UIKitCatalog \
+            -sdk iphonesimulator \
+            -derivedDataPath ./DerivedData \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+        # The built app will be at:
+        # ./DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
+
       - name: 📦 Install NPM packages
         run: npm ci
 
-      # 4️⃣ List available iOS simulators
       - name: 📱 List iOS Simulators
         run: xcrun simctl list devices
 
-      # 5️⃣ Start Appium server in background
       - name: 🚀 Start Appium 3 server
         run: |
           npx appium --port 4723 --base-path /wd/hub > appium.log 2>&1 &
           sleep 15
           curl http://localhost:4723/wd/hub/status
 
-      # 6️⃣ Run WDIO tests
       - name: 🧪 Run WebdriverIO Tests
+        env:
+          APP_PATH: ./DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
         run: npx wdio run wdio.conf.js
 
-      # 7️⃣ Upload Mochawesome reports
       - name: 📤 Upload Mochawesome Reports
+        if: always()                     # Upload even if tests fail
         uses: actions/upload-artifact@v4
         with:
           name: reports
