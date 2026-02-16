@@ -1,0 +1,46 @@
+name: iOS Appium Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ios-test:
+    runs-on: macos-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: 📦 Install dependencies
+        run: npm install
+
+      - name: 📱 Install Appium & XCUITest
+        run: |
+          npm install -g appium
+          appium driver install xcuitest
+
+      - name: 📲 Show Available Simulators
+        run: xcrun simctl list devices
+
+      - name: 🚀 Start Appium
+        run: |
+          appium --port 4723 --base-path /wd/hub > appium.log 2>&1 &
+          sleep 15
+          curl http://localhost:4723/wd/hub/status
+
+      - name: 🧪 Run WDIO Tests
+        run: npx wdio run wdio.conf.js
+
+      - name: 📤 Upload Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: wdio-reports
+          path: reports/
