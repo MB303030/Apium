@@ -39,27 +39,16 @@ jobs:
           xcrun simctl boot "$DEVICE_NAME" || echo "Simulator already booted"
           xcrun simctl list devices
 
-      - name: 🚀 Start Appium server
-        run: |
-          APPIUM_PORT=4723
-          npx appium --port $APPIUM_PORT --base-path /wd/hub > appium.log 2>&1 &
-          echo "Waiting for Appium to be ready..."
-          until curl -s http://localhost:$APPIUM_PORT/wd/hub/status | grep -q '"ready":true'; do
-            sleep 5
-          done
-          echo "Appium is ready!"
-
-      - name: 🧪 Run WebdriverIO Tests (CI config)
+      - name: 🧪 Run WebdriverIO Tests
         env:
           APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
-          IOS_VERSION: '18.5'        # optional – adjust as needed
-          DEVICE_NAME: 'iPhone 16'   # optional – adjust as needed
-          APPIUM_PORT: 4723
+          IOS_VERSION: '18.5'
+          DEVICE_NAME: 'iPhone 16'
         run: npx wdio run wdio.ci.conf.js
 
       - name: 📤 Upload Mochawesome Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reports
-          path: reports/
+          name: mochawesome-reports
+          path: reports/mochawesome/
