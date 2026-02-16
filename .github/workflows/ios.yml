@@ -1,5 +1,4 @@
 name: iOS 
-
 on:
   workflow_dispatch:
 
@@ -16,7 +15,6 @@ jobs:
         with:
           node-version: '20.x'
 
-      # 🔨 Build the UIKitCatalog app from source
       - name: 🔨 Build UIKitCatalog app
         run: |
           xcodebuild build \
@@ -30,22 +28,23 @@ jobs:
       - name: 📦 Install NPM packages
         run: npm ci
 
-      - name: 📱 List available iOS Simulators
+      - name: 📱 List available simulators (for debugging)
         run: xcrun simctl list devices
 
-      # Create the specific simulator if it doesn't exist (adjust version/name as needed)
-      - name: 📱 Create required simulator
+      # Boot a simulator that definitely exists on GitHub runners
+      - name: 📱 Boot simulator (iPhone 15, iOS 17.5)
         run: |
-          # Try to create iOS 18.5 / iPhone 16 – if it already exists, the command will fail but we don't care
-          xcrun simctl create "iPhone 16" "com.apple.CoreSimulator.SimDeviceType.iPhone-16" "com.apple.CoreSimulator.SimRuntime.iOS-18-5" || true
+          xcrun simctl boot "iPhone 15" || true
+          sleep 5
+          xcrun simctl list devices
 
-      # 🚀 Appium is started automatically by the @wdio/appium-service, so no manual start needed
+      # Appium is started automatically by the @wdio/appium-service – no manual start
 
       - name: 🧪 Run WebdriverIO Tests (CI config)
         env:
           APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
-          IOS_VERSION: '18.5'                # must match the created simulator
-          DEVICE_NAME: 'iPhone 16'            # must match the created simulator
+          IOS_VERSION: '17.5'          # must match the booted simulator
+          DEVICE_NAME: 'iPhone 15'      # must match the booted simulator
         run: npx wdio run wdio.ci.conf.js
 
       - name: 📤 Upload Mochawesome Reports
