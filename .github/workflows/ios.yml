@@ -1,4 +1,4 @@
-name: iOS 
+name: iOS
 on:
   workflow_dispatch:
 
@@ -28,23 +28,21 @@ jobs:
       - name: 📦 Install NPM packages
         run: npm ci
 
-      - name: 📱 List available simulators (for debugging)
+      - name: 📱 List available simulators (debug)
         run: xcrun simctl list devices
 
-      # Boot a simulator that definitely exists on GitHub runners
-      - name: 📱 Boot simulator (iPhone 15, iOS 17.5)
+      # Boot the simulator we'll use (iPhone 16e, iOS 26.2)
+      - name: 📱 Boot simulator
         run: |
-          xcrun simctl boot "iPhone 15" || true
+          xcrun simctl boot "iPhone 16e" || true
           sleep 5
           xcrun simctl list devices
-
-      # Appium is started automatically by the @wdio/appium-service – no manual start
 
       - name: 🧪 Run WebdriverIO Tests (CI config)
         env:
           APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
-          IOS_VERSION: '17.5'          # must match the booted simulator
-          DEVICE_NAME: 'iPhone 15'      # must match the booted simulator
+          IOS_VERSION: '26.2'
+          DEVICE_NAME: 'iPhone 16e'
         run: npx wdio run wdio.ci.conf.js
 
       - name: 📤 Upload Mochawesome Reports
