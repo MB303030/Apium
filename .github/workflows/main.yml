@@ -3,7 +3,80 @@ name: iOS WDIO Tests (On Demand)
 on:
   workflow_dispatch:
 
+jobs:name: iOS
+
+on:
+  workflow_dispatch:
+
 jobs:
+  ios-test:
+    runs-on: macos-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: 📦 Install NPM packages
+        run: npm ci
+
+      - name: 🔨 Build UIKitCatalog app
+        run: |
+          xcodebuild build \
+            -project UIKitCatalog/UIKitCatalog.xcodeproj \
+            -scheme UIKitCatalog \
+            -sdk iphonesimulator \
+            -derivedDataPath ./DerivedData \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: 📱 Create fresh simulator and capture UDID
+        id: create_sim
+        run: |
+          xcrun simctl shutdown "iPhone 17 Pro" 2>/dev/null || true
+          xcrun simctl delete "iPhone 17 Pro" 2>/dev/null || true
+
+          UDID=$(xcrun simctl create "iPhone 17 Pro" \
+            "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro" \
+            "com.apple.CoreSimulator.SimRuntime.iOS-26-2")
+
+          echo "SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
+          echo "Created simulator with UDID: $UDID"
+
+      - name: 📱 Boot simulator and wait
+        run: |
+          xcrun simctl boot ${{ env.SIMULATOR_UDID }}
+          xcrun simctl bootstatus ${{ env.SIMULATOR_UDID }} -b
+          echo "Simulator ready."
+
+      - name: 🧪 Run WebdriverIO Tests
+        env:
+          APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
+          SIMULATOR_UDID: ${{ env.SIMULATOR_UDID }}
+        run: npx wdio run wdio.ci.conf.js
+
+      # ✅ NEW: Generate HTML report from JSON
+      - name: 📊 Generate Mochawesome HTML Report
+        if: always()
+        run: |
+          npx mochawesome-merge reports/mochawesome/*.json > reports/mochawesome/merged.json
+          npx marge reports/mochawesome/merged.json \
+            --reportDir reports/html \
+            --reportFilename index \
+            --inline
+
+      # ✅ Upload the HTML UI report
+      - name: 📤 Upload HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mochawesome-html-report
+          path: reports/html
+
   ios-test:
     runs-on: macos-26
 
