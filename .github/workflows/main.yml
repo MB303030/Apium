@@ -3,14 +3,9 @@ name: iOS WDIO Tests (On Demand)
 on:
   workflow_dispatch:
 
-jobs:name: iOS
-
-on:
-  workflow_dispatch:
-
 jobs:
   ios-test:
-    runs-on: macos-latest
+    runs-on: macos-26
 
     steps:
       - name: 📥 Checkout code
@@ -20,12 +15,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
+          cache: npm
+
+      - name: 🔨 Select Xcode 26.2
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.2.app
+          xcodebuild -version
 
       - name: 📦 Install NPM packages
         run: npm ci
 
       - name: 🔨 Build UIKitCatalog app
         run: |
+          set -e
           xcodebuild build \
             -project UIKitCatalog/UIKitCatalog.xcodeproj \
             -scheme UIKitCatalog \
@@ -34,98 +36,18 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO
 
-      - name: 📱 Create fresh simulator and capture UDID
-        id: create_sim
+      - name: 📱 List Available Simulators
         run: |
-          xcrun simctl shutdown "iPhone 17 Pro" 2>/dev/null || true
-          xcrun simctl delete "iPhone 17 Pro" 2>/dev/null || true
-
-          UDID=$(xcrun simctl create "iPhone 17 Pro" \
-            "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro" \
-            "com.apple.CoreSimulator.SimRuntime.iOS-26-2")
-
-          echo "SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
-          echo "Created simulator with UDID: $UDID"
-
-      - name: 📱 Boot simulator and wait
-        run: |
-          xcrun simctl boot ${{ env.SIMULATOR_UDID }}
-          xcrun simctl bootstatus ${{ env.SIMULATOR_UDID }} -b
-          echo "Simulator ready."
-
-      - name: 🧪 Run WebdriverIO Tests
-        env:
-          APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
-          SIMULATOR_UDID: ${{ env.SIMULATOR_UDID }}
-        run: npx wdio run wdio.ci.conf.js
-
-      # ✅ NEW: Generate HTML report from JSON
-      - name: 📊 Generate Mochawesome HTML Report
-        if: always()
-        run: |
-          npx mochawesome-merge reports/mochawesome/*.json > reports/mochawesome/merged.json
-          npx marge reports/mochawesome/merged.json \
-            --reportDir reports/html \
-            --reportFilename index \
-            --inline
-
-      # ✅ Upload the HTML UI report
-      - name: 📤 Upload HTML Report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: mochawesome-html-report
-          path: reports/html
-
-   ios-test:
-    runs-on: macos-26
-
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🟢 Setup Node.js (LTS)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-
-      # 🔨 Build UIKitCatalog app
-      - name: 🔨 Build UIKitCatalog app
-        run: |
-          set -e
-          echo "Building UIKitCatalog app..."
-          sudo xcode-select -s /Applications/Xcode_26.2.app
-          xcodebuild build \
-            -project UIKitCatalog/UIKitCatalog.xcodeproj \
-            -scheme UIKitCatalog \
-            -sdk iphonesimulator \
-            -derivedDataPath ./DerivedData \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO
-        shell: bash
-
-      - name: 📦 Install NPM packages
-        run: |
-          set -e
-          echo "Installing npm packages..."
-          npm ci
-        shell: bash
-
-      - name: 📱 List iOS Simulators
-        run: |
-          echo "Listing available iOS simulators..."
           xcrun simctl list devices
           xcrun simctl list runtimes
-        shell: bash
 
-      # 🚀 Boot simulator with robust wait & error handling
       - name: 🚀 Boot iPhone 17 Pro Simulator
         run: |
           set -e
           DEVICE="iPhone 17 Pro"
-          TIMEOUT=300  # max wait seconds
-          INTERVAL=5   # poll interval
-          echo "Booting simulator $DEVICE..."
+          TIMEOUT=300
+          INTERVAL=5
+
           xcrun simctl boot "$DEVICE" || echo "Already booted"
 
           ELAPSED=0
@@ -136,15 +58,13 @@ jobs:
           done
 
           if [[ $(xcrun simctl list devices | grep "$DEVICE" | grep -c "Booted") -eq 0 ]]; then
-            echo "❌ Simulator $DEVICE failed to boot after $TIMEOUT seconds"
-            echo "Available devices:"
+            echo "❌ Simulator failed to boot"
             xcrun simctl list devices
             exit 1
           fi
-          echo "✅ Simulator $DEVICE booted successfully"
-        shell: bash
 
-      # 🧪 Run WebdriverIO Tests
+          echo "✅ Simulator booted"
+
       - name: 🧪 Run WebdriverIO Tests
         env:
           APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
@@ -152,14 +72,20 @@ jobs:
           DEVICE_NAME: 'iPhone 17 Pro'
         run: |
           set -e
-          echo "Running WebdriverIO tests..."
           npx wdio run wdio.ci.conf.js
-        shell: bash
 
-      # 📤 Upload Mochawesome Reports
-      - name: 📤 Upload Mochawesome Reports
+      - name: 📊 Generate Mochawesome HTML Report
+        if: always()
+        run: |
+          npx mochawesome-merge reports/mochawesome/*.json > reports/mochawesome/merged.json
+          npx marge reports/mochawesome/merged.json \
+            --reportDir reports/html \
+            --reportFilename index \
+            --inline
+
+      - name: 📤 Upload HTML Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mochawesome-reports
-          path: reports/mochawesome/
+          name: mochawesome-html-report
+          path: reports/html
