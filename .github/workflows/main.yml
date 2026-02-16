@@ -77,7 +77,7 @@ jobs:
           name: mochawesome-html-report
           path: reports/html
 
-  ios-test:
+   ios-test:
     runs-on: macos-26
 
     steps:
