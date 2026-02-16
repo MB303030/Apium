@@ -11,13 +11,13 @@ exports.config = {
     maxInstances: 1,
     capabilities: [{
         platformName: 'iOS',
-        'appium:platformVersion': '26.2',         // matches your runner
-        'appium:deviceName': 'iPhone 16e',        // matches available simulator
+        'appium:platformVersion': '26.2',
+        'appium:deviceName': 'iPhone 17 Pro',  // must match available device
         'appium:automationName': 'XCUITest',
         'appium:app': appPath,
         'appium:noReset': true,
         'appium:showXcodeLog': true
-    }],
+    }],    
     logLevel: 'info',
     bail: 0,
     waitforTimeout: 30000,
