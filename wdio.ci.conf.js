@@ -6,18 +6,18 @@ const appPath = process.env.APP_PATH || path.join(process.cwd(), 'DerivedData/Bu
 exports.config = {
     runner: 'local',
     port: process.env.APPIUM_PORT || 4723,
-    path: '/wd/hub',
+    // 🚨 REMOVED the line: path: '/wd/hub',   (this was causing the timeout)
     specs: ['./test/specs/**/*.ios.js'],
     maxInstances: 1,
     capabilities: [{
         platformName: 'iOS',
-        'appium:platformVersion': '26.2',
-        'appium:deviceName': 'iPhone 17 Pro',  // must match available device
+        'appium:platformVersion': '26.2',               // or use process.env.IOS_VERSION
+        'appium:deviceName': 'iPhone 17 Pro',           // or use process.env.DEVICE_NAME
         'appium:automationName': 'XCUITest',
         'appium:app': appPath,
         'appium:noReset': true,
         'appium:showXcodeLog': true
-    }],    
+    }],
     logLevel: 'info',
     bail: 0,
     waitforTimeout: 30000,
@@ -26,15 +26,15 @@ exports.config = {
     services: ['appium'],
     framework: 'mocha',
 
-    // ✅ Proper Mochawesome configuration
+    // Mochawesome reporter configuration
     reporters: [['mochawesome', {
         outputDir: './reports/mochawesome',
         outputFileFormat: function(opts) {
-            return `results-${opts.cid}.html`;  // HTML filename per worker
+            return `results-${opts.cid}.html`;
         },
         mochawesomeOpts: {
-            html: true,      // generate HTML
-            json: true,      // generate JSON
+            html: true,
+            json: true,
             reportDir: './reports/mochawesome',
             reportFilename: 'index',
             overwrite: true,
