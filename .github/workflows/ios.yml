@@ -31,18 +31,44 @@ jobs:
       - name: 📱 List available simulators (debug)
         run: xcrun simctl list devices
 
-      # Boot the simulator we'll use (iPhone 16e, iOS 26.2)
-      - name: 📱 Boot simulator
+      # Create and boot a clean simulator (iPhone 17 Pro, iOS 26.2)
+      - name: 📱 Create and boot simulator
+        id: sim
         run: |
-          xcrun simctl boot "iPhone 16e" || true
-          sleep 5
-          xcrun simctl list devices
+          DEVICE_NAME="iPhone 17 Pro"
+          RUNTIME="com.apple.CoreSimulator.SimRuntime.iOS-26-2"
+          DEVICE_TYPE="com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro"
+
+          # Shutdown any running simulators
+          xcrun simctl shutdown all || true
+
+          # Delete existing simulator with same name (if any)
+          xcrun simctl delete "$DEVICE_NAME" || true
+
+          # Create new simulator and capture its UDID
+          UDID=$(xcrun simctl create "$DEVICE_NAME" "$DEVICE_TYPE" "$RUNTIME")
+          echo "SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
+          echo "Created simulator with UDID: $UDID"
+
+          # Boot it
+          xcrun simctl boot "$UDID"
+
+          # Wait for boot to complete
+          for i in {1..60}; do
+            if xcrun simctl list devices | grep "$UDID" | grep -q "Booted"; then
+              echo "Simulator booted"
+              break
+            fi
+            echo "Waiting for boot... ($i/60)"
+            sleep 2
+          done
+          # Extra time for UI to settle
+          sleep 10
 
       - name: 🧪 Run WebdriverIO Tests (CI config)
         env:
           APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
-          IOS_VERSION: '26.2'
-          DEVICE_NAME: 'iPhone 16e'
+          SIMULATOR_UDID: ${{ env.SIMULATOR_UDID }}
         run: npx wdio run wdio.ci.conf.js
 
       - name: 📤 Upload Mochawesome Reports
