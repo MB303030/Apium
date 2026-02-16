@@ -33,21 +33,11 @@ jobs:
       - name: 📱 List iOS Simulators
         run: xcrun simctl list devices
 
-      - name: 📱 Boot iOS Simulator
-        run: |
-          DEVICE_NAME="iPhone 16e"   # updated to match runner
-          xcrun simctl boot "$DEVICE_NAME" || echo "Simulator already booted"
-          # Wait until simulator is fully booted
-          until xcrun simctl list devices | grep "$DEVICE_NAME (Booted)"; do
-            echo "Waiting for simulator to boot..."
-            sleep 5
-          done
-
       - name: 🧪 Run WebdriverIO Tests
         env:
           APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
-          IOS_VERSION: '26.2'        # updated to match runner
-          DEVICE_NAME: 'iPhone 16e'  # updated to match runner
+          IOS_VERSION: '26.2'          # matches runner
+          DEVICE_NAME: 'iPhone 17 Pro' # booted device
         run: npx wdio run wdio.ci.conf.js
 
       - name: 📤 Upload Mochawesome Reports
