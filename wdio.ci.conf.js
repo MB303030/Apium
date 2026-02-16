@@ -1,18 +1,18 @@
 const path = require('path');
 const addContext = require('mochawesome/addContext');
 
-const appPath = process.env.APP_PATH || path.join(process.cwd(), 'DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app');
+// Use environment variable in CI, fallback to local path for dev
+const appPath = process.env.APP_PATH || path.resolve('/Users/mishka/Library/Developer/Xcode/DerivedData/UIKitCatalog-geaondeyrufcdydowlsmqcjsthix/Build/Products/Debug-iphonesimulator/UIKitCatalog.app');
 
 exports.config = {
     runner: 'local',
-    port: process.env.APPIUM_PORT || 4723,
-    // 🚨 REMOVED the line: path: '/wd/hub',   (this was causing the timeout)
+    port: 4723,
     specs: ['./test/specs/**/*.ios.js'],
     maxInstances: 1,
     capabilities: [{
         platformName: 'iOS',
-        'appium:platformVersion': '26.2',               // or use process.env.IOS_VERSION
-        'appium:deviceName': 'iPhone 17 Pro',           // or use process.env.DEVICE_NAME
+        'appium:platformVersion': '26.2',
+        'appium:deviceName': 'iPhone 17 Pro',
         'appium:automationName': 'XCUITest',
         'appium:app': appPath,
         'appium:noReset': true,
@@ -21,41 +21,26 @@ exports.config = {
     logLevel: 'info',
     bail: 0,
     waitforTimeout: 30000,
-    connectionRetryTimeout: 180000,
+    connectionRetryTimeout: 120000,
     connectionRetryCount: 3,
     services: ['appium'],
     framework: 'mocha',
-
-    // Mochawesome reporter configuration
     reporters: [['mochawesome', {
         outputDir: './reports/mochawesome',
         outputFileFormat: function(opts) {
-            return `results-${opts.cid}.html`;
-        },
-        mochawesomeOpts: {
-            html: true,
-            json: true,
-            reportDir: './reports/mochawesome',
-            reportFilename: 'index',
-            overwrite: true,
-            quiet: true
+            return `results-${opts.cid}.json`;
         }
     }]],
-
     mochaOpts: { ui: 'bdd', timeout: 60000 },
-
-    before: async function () {
-        console.log('Starting tests...');
-    },
+    before: async function () { console.log('Starting tests on iOS 26.2 simulator...'); },
     afterTest: async function (test, context, { passed }) {
         if (!passed) {
-            addContext({ title: 'Test failed screenshot', value: 'path/to/screenshot.png' });
+            const safeTitle = test.title.replace(/[^a-z0-9]/gi, '_');
+            const screenshotPath = `./reports/mochawesome/${safeTitle}.png`;
+            await browser.saveScreenshot(screenshotPath);
+            addContext(this, { title: 'Failure Screenshot', value: screenshotPath });
         }
     },
-    onPrepare: function () {
-        console.log('Preparing test run...');
-    },
-    onComplete: function (exitCode) {
-        console.log('Finished with exit code:', exitCode);
-    }
+    onPrepare: function () { console.log('Preparing test run...'); },
+    onComplete: function(exitCode) { console.log('Test run finished with exit code:', exitCode); }
 };
