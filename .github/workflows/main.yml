@@ -16,20 +16,16 @@ jobs:
         with:
           node-version: '20.x'
 
-      # 🔨 Build the UIKitCatalog app
-      # IMPORTANT: The UIKitCatalog Xcode project must exist in your repository at the root.
-      # If it's located elsewhere, adjust the -project and -scheme paths accordingly.
+      # 🔨 Build the UIKitCatalog app from source
       - name: 🔨 Build UIKitCatalog app
         run: |
           xcodebuild build \
-            -project UIKitCatalog.xcodeproj \
+            -project UIKitCatalog/UIKitCatalog.xcodeproj \
             -scheme UIKitCatalog \
             -sdk iphonesimulator \
             -derivedDataPath ./DerivedData \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO
-        # The built app will be at:
-        # ./DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
 
       - name: 📦 Install NPM packages
         run: npm ci
@@ -43,11 +39,12 @@ jobs:
           sleep 15
           curl http://localhost:4723/wd/hub/status
 
-      - name: 🧪 Run WebdriverIO Tests
+      - name: 🧪 Run WebdriverIO Tests (CI config)
         env:
-          # Pass the absolute path of the built app to your tests
           APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
-        run: npx wdio run wdio.conf.js
+          IOS_VERSION: '18.5'                # optional – adjust as needed
+          DEVICE_NAME: 'iPhone 16'            # optional – adjust as needed
+        run: npx wdio run wdio.ci.conf.js
 
       - name: 📤 Upload Mochawesome Reports
         if: always()
