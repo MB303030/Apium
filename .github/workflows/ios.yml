@@ -1,4 +1,4 @@
-name: iOS Appium Tests
+name: iOS
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: 📥 Checkout repository
+      - name: 📥 Checkout
         uses: actions/checkout@v4
 
       - name: 🟢 Setup Node
@@ -19,20 +19,15 @@ jobs:
         with:
           node-version: 18
 
-      - name: 📦 Install dependencies
-        run: npm install
-
-      - name: 📱 Install Appium & XCUITest
-        run: |
-          npm install -g appium
-          appium driver install xcuitest
+      - name: 📦 Install Dependencies
+        run: npm ci
 
       - name: 📲 Show Available Simulators
         run: xcrun simctl list devices
 
-      - name: 🚀 Start Appium
+      - name: 🚀 Start Appium (Appium 3)
         run: |
-          appium --port 4723 --base-path /wd/hub > appium.log 2>&1 &
+          npx appium --port 4723 --base-path /wd/hub > appium.log 2>&1 &
           sleep 15
           curl http://localhost:4723/wd/hub/status
 
@@ -42,5 +37,5 @@ jobs:
       - name: 📤 Upload Reports
         uses: actions/upload-artifact@v4
         with:
-          name: wdio-reports
+          name: reports
           path: reports/
