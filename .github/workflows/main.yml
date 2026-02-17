@@ -2,10 +2,16 @@ name: iOS111
 on:
   workflow_dispatch:
     inputs:
-      test_spec:
-        description: 'Test spec file(s) to run (e.g., ./test/specs/login.js or ./test/specs/**/*.js)'
-        required: false
-        default: './test/specs/**/*.js'
+      test_selection:
+        description: 'Select the test(s) to run'
+        required: true
+        default: 'All Tests'
+        type: choice
+        options:
+          - 'All Tests'
+          - 'Date Picker Tests'
+          - 'Login Tests'
+          # Add more friendly names as needed
 
 jobs:
   ios-test:
@@ -69,11 +75,29 @@ jobs:
 
           echo "Simulator ready."
 
+      - name: 🔀 Map test selection to spec pattern
+        id: map_spec
+        run: |
+          case "${{ github.event.inputs.test_selection }}" in
+            "All Tests")
+              echo "SPEC_PATTERN=./test/specs/**/*.js" >> $GITHUB_OUTPUT
+              ;;
+            "Date Picker Tests")
+              echo "SPEC_PATTERN=./test/specs/datePicker.spec.js" >> $GITHUB_OUTPUT
+              ;;
+            "Login Tests")
+              echo "SPEC_PATTERN=./test/specs/login.spec.js" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "SPEC_PATTERN=./test/specs/**/*.js" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
       - name: 🧪 Run WebdriverIO Tests
         env:
           APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
           SIMULATOR_UDID: ${{ env.SIMULATOR_UDID }}
-        run: npx wdio run wdio.ci.conf.js --spec "${{ github.event.inputs.test_spec }}"
+        run: npx wdio run wdio.ci.conf.js --spec "${{ steps.map_spec.outputs.SPEC_PATTERN }}"
 
       - name: 📤 Upload Mochawesome Reports
         if: always()
