@@ -1,11 +1,15 @@
-name: iOS WDIO Tests (On Demand)
-
+name: iOS111
 on:
   workflow_dispatch:
+    inputs:
+      test_spec:
+        description: 'Test spec file(s) to run (e.g., ./test/specs/login.js or ./test/specs/**/*.js)'
+        required: false
+        default: './test/specs/**/*.js'
 
 jobs:
   ios-test:
-    runs-on: macos-26
+    runs-on: macos-latest
 
     steps:
       - name: 📥 Checkout code
@@ -15,19 +19,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          cache: npm
-
-      - name: 🔨 Select Xcode 26.2
-        run: |
-          sudo xcode-select -s /Applications/Xcode_26.2.app
-          xcodebuild -version
-
-      - name: 📦 Install NPM packages
-        run: npm ci
 
       - name: 🔨 Build UIKitCatalog app
         run: |
-          set -e
           xcodebuild build \
             -project UIKitCatalog/UIKitCatalog.xcodeproj \
             -scheme UIKitCatalog \
@@ -36,56 +30,54 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO
 
-      - name: 📱 List Available Simulators
+      - name: 📦 Install NPM packages
+        run: npm ci
+
+      - name: 📱 Create fresh simulator and capture UDID
+        id: create_sim
         run: |
-          xcrun simctl list devices
-          xcrun simctl list runtimes
+          # Shutdown and delete any existing simulator with the same name
+          xcrun simctl shutdown "iPhone 17 Pro" 2>/dev/null || true
+          xcrun simctl delete "iPhone 17 Pro" 2>/dev/null || true
 
-      - name: 🚀 Boot iPhone 17 Pro Simulator
+          # Create a new simulator and save its UDID
+          UDID=$(xcrun simctl create "iPhone 17 Pro" "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro" "com.apple.CoreSimulator.SimRuntime.iOS-26-2")
+          echo "SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
+          echo "Created simulator with UDID: $UDID"
+
+      - name: 📱 Boot simulator and wait for full readiness
         run: |
-          set -e
-          DEVICE="iPhone 17 Pro"
-          TIMEOUT=300
-          INTERVAL=5
+          xcrun simctl boot ${{ env.SIMULATOR_UDID }}
 
-          xcrun simctl boot "$DEVICE" || echo "Already booted"
-
-          ELAPSED=0
-          while [[ $(xcrun simctl list devices | grep "$DEVICE" | grep -c "Booted") -eq 0 && $ELAPSED -lt $TIMEOUT ]]; do
-            echo "Waiting for simulator to boot... ($ELAPSED/$TIMEOUT)"
-            sleep $INTERVAL
-            ELAPSED=$((ELAPSED+INTERVAL))
+          # Wait for boot to complete (using bootstatus)
+          echo "Waiting for simulator to finish booting..."
+          for i in {1..120}; do  # up to 4 minutes
+            STATUS=$(xcrun simctl bootstatus ${{ env.SIMULATOR_UDID }} 2>&1 || true)
+            if echo "$STATUS" | grep -q "already booted"; then
+              echo "Simulator is booted."
+              break
+            fi
+            if echo "$STATUS" | grep -q "booting"; then
+              echo "Still booting... ($i/120)"
+            fi
+            sleep 2
           done
 
-          if [[ $(xcrun simctl list devices | grep "$DEVICE" | grep -c "Booted") -eq 0 ]]; then
-            echo "❌ Simulator failed to boot"
-            xcrun simctl list devices
-            exit 1
-          fi
+          # Additional wait for SpringBoard to be ready
+          echo "Waiting 30 seconds for SpringBoard to settle..."
+          sleep 30
 
-          echo "✅ Simulator booted"
+          echo "Simulator ready."
 
       - name: 🧪 Run WebdriverIO Tests
         env:
           APP_PATH: ${{ github.workspace }}/DerivedData/Build/Products/Debug-iphonesimulator/UIKitCatalog.app
-          IOS_VERSION: '26.2'
-          DEVICE_NAME: 'iPhone 17 Pro'
-        run: |
-          set -e
-          npx wdio run wdio.ci.conf.js
+          SIMULATOR_UDID: ${{ env.SIMULATOR_UDID }}
+        run: npx wdio run wdio.ci.conf.js --spec "${{ github.event.inputs.test_spec }}"
 
-      - name: 📊 Generate Mochawesome HTML Report
-        if: always()
-        run: |
-          npx mochawesome-merge reports/mochawesome/*.json > reports/mochawesome/merged.json
-          npx marge reports/mochawesome/merged.json \
-            --reportDir reports/html \
-            --reportFilename index \
-            --inline
-
-      - name: 📤 Upload HTML Report
+      - name: 📤 Upload Mochawesome Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mochawesome-html-report
-          path: reports/html
+          name: mochawesome-report
+          path: reports/   # adjust if your reports folder is different
