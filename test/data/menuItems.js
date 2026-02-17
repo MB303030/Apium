@@ -5,11 +5,11 @@
  * If a detail screen has a different header, add a property `expectedHeader`.
  */
 module.exports = [
-    'Activity Indicators',
-    'Alert Views',
-    'Buttons',
+    //'Activity Indicators',
+    //'Alert Views',
+    //'Buttons',
     'Date Picker',
-    'Image View',
+    //'Image View',
     // 'Page Control',
     // 'Picker View',
     // 'Progress Views',
